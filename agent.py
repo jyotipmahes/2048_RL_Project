@@ -2,9 +2,9 @@ import numpy as np
 import random
 
 
-class Agent:
+class Agent():
     "All of the Agent expect Q-learning has been given to you."
-    def __init__(self, game_class, epsilon=0.1, alpha=1.0):
+    def __init__(self, game_class, epsilon=0.2, alpha=.5):
         self.V = dict() # Build up the values of different states as we encounter them; Note the Markov assumption
         self.NewGame = game_class
         self.epsilon = epsilon
@@ -39,7 +39,7 @@ class Agent:
                                                
             best_move_value = self.state_value(game._state, best_next_move)
             td_target = r + best_move_value
-            self.V[(str(current_state), selected_next_move)] = current_state_value + self.alpha * (td_target - current_state_value) 
+            self.V[(str(current_state), selected_next_move)]  = r + self.alpha*best_move_value
         except:
             pass
         return selected_next_move, r
@@ -98,5 +98,4 @@ class Agent:
             else:
                 game.do_action(np.random.choice(game.available_actions()))
         return game.score()          
-
 

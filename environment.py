@@ -9,7 +9,15 @@ ACTION_UP = 1
 ACTION_RIGHT = 2
 ACTION_DOWN = 3
 
-class Game(object):
+def state2tensor(state):
+    t = np.zeros((16, 16), dtype=np.float32)
+    for i, c in enumerate(state.flatten()):
+        t[c, i] = 1  #2.0**c
+    t.resize(1, 16, 4, 4)
+    return t
+
+
+class Game:
     def __init__(self, state=None, initial_score=0):
         """Init the Game object.
         Args:
@@ -28,7 +36,7 @@ class Game(object):
             self.add_random_tile()
             self.add_random_tile()
         else:
-            self._state = state
+            self._state = state.copy()
 
     def copy(self):
         """Return a copy of self."""
@@ -74,15 +82,20 @@ class Game(object):
 
     def do_action(self, action):
         """Execute action, add a new tile, update the score & return the reward."""
+        
+        if action in self.available_actions():
 
-        temp_state = np.rot90(self._state, action)
-        reward = self._do_action_left(temp_state)
-        self._state = np.rot90(temp_state, -action)
-        self._score += reward
+            temp_state = np.rot90(self._state, action)
+            reward = self._do_action_left(temp_state)
+            self._state = np.rot90(temp_state, -action)
+            self._score += reward
 
-        self.add_random_tile()
+            self.add_random_tile()
 
-        return reward
+            return self._state.copy(), reward, self.game_over(), ''
+        
+        else:
+            return self._state.copy(), -8, self.game_over(), ''
 
     def _do_action_left(self, state):
         """Exectures action 'Left'."""
@@ -142,8 +155,106 @@ class Game(object):
 
     def state(self):
         """Return current state."""
-        return self._state
+        return self._state.copy()
 
     def score(self):
         """Return current score."""
-        return self._score
+        return self._score.copy()
+
+    def to_tensor(self):
+        return state2tensor(self._state)
+
+class RandomPlayer():
+    """
+    A player which will take random move
+    on 100 simulations: average score 1093, max score 2736
+    """
+
+    def __init__(self, name='Random Player'):
+        self.name_ = name
+
+    def select_action(self, state):
+        return np.random.randint(4)
+
+
+class OneStepPlayer():
+    """
+    A player which will search one step forward.
+    on 100 simulations: average score 1811, max score 6192
+    """
+
+    def __init__(self, name='One Step Player'):
+        self.name_ = name
+
+    def select_action(self, state):
+        rewards = [Game(state=state).do_action(i)[1] for i in range(4)]
+        if np.max(rewards) > 0:
+            return np.argmax(rewards)
+        else:
+            return np.random.randint(4)
+
+
+class MultiStepPlayer():
+    """
+    A player which will search steps depth.
+    on 100 simulations:
+        2 steps depth: average score 7648, max score 16132
+        3 steps depth: average score 8609, max score 16248
+    """
+
+    def __init__(self, name='Mutil Step Player', steps=2):
+        self.name_ = name
+        self.n_steps_ = steps
+
+    def select_action(self, state):
+        rewards = np.zeros(4, dtype=np.int32)
+        for i in range(4):
+            env = Game(state=state)
+            new_state, rewards[i], _, _ = env.do_action(i)
+            for _ in range(self.n_steps_ - 1):
+                new_state, reward, _, _ = env.do_action(
+                    OneStepPlayer().select_action(new_state))
+                rewards[i] += reward
+        if np.max(rewards) > 0:
+            return np.argmax(rewards)
+        else:
+            return np.random.randint(4)
+
+
+def play_once(env, player):
+    epoch = 1
+    while 1:
+        a = player.select_action(env.state())
+        _, r, t, _ = env.do_action(a)
+        if t:
+            break
+        epoch += 1
+    ret = env.score()
+    return ret
+
+
+def test_player(player, n_episodes):
+    sum_ret = 0
+    max_ret = 0
+    for episode in range(n_episodes):
+        env = Game()
+        ret = play_once(env, player)
+        sum_ret += ret
+        if ret > max_ret:
+            max_ret = ret
+    print('%s average score %d, max score %d' %
+          (player.name_, sum_ret / n_episodes, max_ret))
+
+def __test__():
+    s = np.array(
+        [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0]],
+        dtype=np.int8)
+    env = Game(state=s)
+    print(env)
+    env.step(1)
+    print(env)
+
+
+
+
+    
