@@ -16,6 +16,7 @@ Transition = namedtuple('Transition',
 
 
 class ReplayMemory(object):
+    "Store transition tuples for replay"
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
@@ -29,13 +30,17 @@ class ReplayMemory(object):
         self.position = (self.position + 1) % self.capacity
 
     def sample(self, batch_size):
+        "Samples a item from the replay buffer"
         return random.sample(self.memory, batch_size)
 
     def __len__(self):
+        "Return memory size of replay buffer"
         return len(self.memory)
 
 
 class DQN(nn.Module):
+    "Implements DDQN with fixed Q learning"
+    "Inspired by: https://github.com/yytdfc/DQN-2048/blob/master/dqn.py"
     def __init__(self):
         super(DQN, self).__init__()
         # 4*4*16 -> 4*4*32
@@ -58,6 +63,7 @@ class DQN(nn.Module):
 
 
 class DQNPlayer():
+    "DDQN agent to learn using DDQN algorithm"
     def __init__(self, name='DQN Player', eps=0.9):
         self.name_ = name
         self.eps_ = eps
@@ -69,16 +75,18 @@ class DQNPlayer():
         self.target_net_.load_state_dict(self.policy_net_.state_dict())
         self.target_net_.eval()
         self.optimizer_ = optim.RMSprop(self.policy_net_.parameters())
-        self.memory_ = ReplayMemory(10000)
+        self.memory_ = ReplayMemory(10_000)
         self.average_ = 0
         self.trained_ = 0
         self.TARGET_UPDATE = 10
 
     def select_action(self, state, greedy=False):
+        "Select action using exploration and exploitation"
         return_item = False
         if type(state) is np.ndarray:
             return_item = True
-            state = torch.tensor(environment.state2tensor(state), device=device, dtype=torch.float32)
+            state = torch.tensor(environment.state2tensor(state),
+                                 device=device, dtype=torch.float32)
         if greedy or np.random.random() > self.eps_:
             with torch.no_grad():
                 ret = self.policy_net_(state).max(1)[1].view(1, 1)
@@ -90,8 +98,8 @@ class DQNPlayer():
         else:
             return ret
 
-
     def optimize_model(self):
+        "Main DDQN learning logic implemented"
         if len(self.memory_) < self.batch_size_:
             return
         transitions = self.memory_.sample(self.batch_size_)
@@ -135,19 +143,23 @@ class DQNPlayer():
         self.optimizer_.step()
 
     def training(self, num_episodes):
+        "Training the model using DDQN and fixed Q"
         last10 = []
         for i_episode in range(num_episodes):
             # Initialize the environment and state
             env = environment.Game()
-            state = torch.tensor(env.to_tensor(), device=device, dtype=torch.float32)
-            for i_step in range(100000):
+            state = torch.tensor(env.to_tensor(),
+                                 device=device, dtype=torch.float32)
+            for i_step in range(100_000):
                 # Select and perform an action
                 action = self.select_action(state)
                 _, reward, done, _ = env.do_action(action.item())
                 reward = torch.tensor(
                     [reward], device=device, dtype=torch.float32)
                 if not done:
-                    next_state = torch.tensor(env.to_tensor(), device=device, dtype=torch.float32)
+                    next_state = torch.tensor(env.to_tensor(),
+                                              device=device,
+                                              dtype=torch.float32)
                 else:
                     next_state = None
 
@@ -173,29 +185,27 @@ class DQNPlayer():
             self.trained_ += 1
             self.eps_ = self.eps_end_ + np.exp(
                 -self.trained_ / 200) * (0.9 - 0.05)
-            print('Episode %3d, steps %4d, score %5d, avg %5.0f, eps %.4f' %
-                  (self.trained_, i_step, env.score(), self.average_, self.eps_))
+            print(f"Episode {self.trained_:3d}, steps {i_step:4d}, score {env.score():5d}, avg {self.average_:0.5f}, eps {self.eps_:0.4f}")
 
 
 def __test__():
+    "Test function to check the code"
     net = DQN().to(device)
     s = np.array(
         [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0]],
         dtype=np.int8)
-    print(net.forward(torch.tensor(environment.state2tensor(s), device=device, dtype=torch.float32)))
+    print(net.forward(torch.tensor(environment.state2tensor(s),
+          device=device, dtype=torch.float32)))
     player = DQNPlayer()
-    print(player.policy_net_.forward(torch.tensor(environment.state2tensor(s), device=device, dtype=torch.float32)))
+    print(player.policy_net_.forward(torch.tensor(environment.state2tensor(s),
+          device=device, dtype=torch.float32)))
     print(player.select_action(s))
     environment.test_player(player, 10)
-    
+
 
 if __name__ == '__main__':
-    n_episodes = 2000
+    n_episodes = 100
     player = DQNPlayer()
     player.training(n_episodes)
-    player.eps_=0.05
+    player.eps_ = 0.05
     environment.test_player(player, 100)
-
-
-
-

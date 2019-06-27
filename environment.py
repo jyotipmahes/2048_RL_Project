@@ -1,18 +1,19 @@
 import numpy as np
 import random
 
-# Global controls
 
+# Global controls
 ACTION_NAMES = ["left", "up", "right", "down"]
 ACTION_LEFT = 0
 ACTION_UP = 1
 ACTION_RIGHT = 2
 ACTION_DOWN = 3
 
+
 def state2tensor(state):
     t = np.zeros((16, 16), dtype=np.float32)
     for i, c in enumerate(state.flatten()):
-        t[c, i] = 1  #2.0**c
+        t[c, i] = 1  # 2.0**c
     t.resize(1, 16, 4, 4)
     return t
 
@@ -31,7 +32,7 @@ class Game:
         if state is None:
             # Initialize all states to 0(empty)
             self._state = np.zeros((4, 4), dtype=np.int)
-            
+
             # Initialize 2 random tiles
             self.add_random_tile()
             self.add_random_tile()
@@ -43,7 +44,8 @@ class Game:
         return Game(np.copy(self._state), self._score)
 
     def game_over(self):
-        """Whether the game is over. Check if any of the actions are still available"""
+        """Whether the game is over. Check if any of the
+           actions are still available"""
         for action in range(4):
             if self.is_action_available(action):
                 return False
@@ -51,13 +53,14 @@ class Game:
 
     def available_actions(self):
         """Computes the set of actions that are available."""
-        return [action for action in range(4) if self.is_action_available(action)]
+        return [action for action in range(4) if
+                self.is_action_available(action)]
 
     def is_action_available(self, action):
         """Determines whether action is available.
         That is, executing it would change the state.
         """
-        # Rotate the state by 90 anti clockwise times the action 
+        # Rotate the state by 90 anti clockwise times the action
         # This reduces the number of cases to be checked
         temp_state = np.rot90(self._state, action)
         return self._is_action_available_left(temp_state)
@@ -74,15 +77,15 @@ class Game:
                 if state[row, col] != 0 and has_empty:
                     return True
                 if (state[row, col] != 0 and col > 0 and
-                    state[row, col] == state[row, col - 1]):
+                   state[row, col] == state[row, col - 1]):
                     return True
 
         return False
 
-
     def do_action(self, action):
-        """Execute action, add a new tile, update the score & return the reward."""
-        
+        """Execute action, add a new tile, update the
+           score & return the reward."""
+
         if action in self.available_actions():
 
             temp_state = np.rot90(self._state, action)
@@ -93,7 +96,7 @@ class Game:
             self.add_random_tile()
 
             return self._state.copy(), reward, self.game_over(), ''
-        
+
         else:
             return self._state.copy(), -8, self.game_over(), ''
 
@@ -103,7 +106,8 @@ class Game:
         reward = 0
 
         for row in range(4):
-          # Always the rightmost tile in the current row that was already moved
+            # Always the rightmost tile in the current
+            # row that was already moved
             merge_candidate = -1
             merged = np.zeros((4,), dtype=np.bool)
 
@@ -113,15 +117,15 @@ class Game:
 
                 if (merge_candidate != -1 and
                     not merged[merge_candidate] and
-                    state[row, merge_candidate] == state[row, col]):
-                  # Merge tile with merge_candidate
+                   state[row, merge_candidate] == state[row, col]):
+                    # Merge tile with merge_candidate
                     state[row, col] = 0
                     merged[merge_candidate] = True
                     state[row, merge_candidate] += 1
                     reward += 2 ** state[row, merge_candidate]
 
                 else:
-                  # Move tile to the left
+                    # Move tile to the left
                     merge_candidate += 1
                     if col != merge_candidate:
                         state[row, merge_candidate] = state[row, col]
@@ -143,14 +147,15 @@ class Game:
         """Prints the current state."""
 
         def tile_string(value):
-          """Concert value to string."""
-          if value > 0:
-            return '% 5d' % (2 ** value,)
-          return "     "
+            """Concert value to string."""
+            if value > 0:
+                return '% 5d' % (2 ** value,)
+            return "     "
 
         print("-" * 25)
         for row in range(4):
-            print("|" + "|".join([tile_string(v) for v in self._state[row, :]]) + "|")
+            print("|" + "|".join([tile_string(v)
+                  for v in self._state[row, :]]) + "|")
             print("-" * 25)
 
     def state(self):
@@ -163,6 +168,7 @@ class Game:
 
     def to_tensor(self):
         return state2tensor(self._state)
+
 
 class RandomPlayer():
     """
@@ -222,6 +228,7 @@ class MultiStepPlayer():
 
 
 def play_once(env, player):
+    "Play one episode using the player"
     epoch = 1
     while 1:
         a = player.select_action(env.state())
@@ -234,6 +241,7 @@ def play_once(env, player):
 
 
 def test_player(player, n_episodes):
+    "Test player plays for given number of episodes"
     sum_ret = 0
     max_ret = 0
     for episode in range(n_episodes):
@@ -245,7 +253,9 @@ def test_player(player, n_episodes):
     print('%s average score %d, max score %d' %
           (player.name_, sum_ret / n_episodes, max_ret))
 
+
 def __test__():
+    "Test function to test the code"
     s = np.array(
         [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 1, 0]],
         dtype=np.int8)
@@ -253,8 +263,3 @@ def __test__():
     print(env)
     env.step(1)
     print(env)
-
-
-
-
-    
